@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            label {
+                font-family: Arial;
+            }
+
+            #tool-panel {
+                font-family: Arial;
+            }
+
+            #current-tool {
+                color: blue;
+                font-weight: bold;
+            }
+
+            #editor-canvas {
+                background-color: #dadada;
+            }
+
+            #controls {
+                width: 300px;
+                background-color: pink;
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                padding: 10px;
+            }
+
+            #tool-panel {
+                background-color: lightblue;
+                margin-bottom: 15px;
+                padding: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="editor-canvas" onmousemove="updateMap(event)" onmousedown="updateMap(event)" width="600" height="600">
+        </canvas>
+        <div id="controls">
+
+            <div id="tool-panel">
+                <p>Current Tool: <span id="current-tool">BLANK</span></span></p>
+                <button id="tool-blank" onclick="selectTool(0)">Blank</button>
+                <button id="tool-blank" onclick="selectTool(1)">Wall</button>
+                <button id="tool-blank" onclick="selectTool(2)">Start</button>
+                <button id="tool-blank" onclick="selectTool(3)">Goal</button>
+            </div>
+            <div>
+                <label>Size:</label>
+                <input type="number" id="size-selector"
+                    min="3" max="64" step="1" value="10">
+                <button id="export-button" onclick="exportMaze()">Export</button>
+                <button id="clear-button" onclick="clearMaze()">Clear All</button>   
+            </div>
+            
+        </div>
+    </body>
+
+    <script type="text/javascript">
+        var mazeData = [];
+        var size;
+        var START_X = 10;
+        var START_Y = 10;
+        var BASE_SIZE = 12;
+        var currentTool = 0;
+
+        function init() {
+            size = 10;
+            for (let i = 0; i < 64; i++) {
+                let row = []
+                for (let j = 0; j < 64; j++) {
+                    row.push(0);
+                }
+                mazeData.push(row);
+            }
+        }
+
+        function download(filename, text) {
+            var element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
+        }
+
+        function exportMaze() {
+            startCount = 0
+            goalCount = 0
+            for (let i = 0; i < size; i++)
+                for (let j = 0; j < size; j++) {
+                    if (mazeData[i][j] == 2) startCount++;
+                    else if (mazeData[i][j] == 3) goalCount++;
+                }
+            if (startCount != 1) {
+                alert("ERROR: Must have exactly one START cell!")
+                return;
+            }
+            if (goalCount != 1) {
+                alert("ERROR: Must have exactly one GOAL cell!")
+                return;
+            }
+
+            result = '';
+            result += size + '\n';
+
+            for (let i = 0; i < size; i++) {
+                let line = '';
+                for (let j = 0; j < size; j++) {
+                    if (mazeData[i][j] == 0) {
+                        line += '.'
+                    }
+                    if (mazeData[i][j] == 1) {
+                        line += '#'
+                    }
+                    if (mazeData[i][j] == 2) {
+                        line += 'S'
+                    }
+                    if (mazeData[i][j] == 3) {
+                        line += 'G'
+                    }
+                }
+                line += '\n';
+                result += line;
+            }
+     
+            download('maze.txt', result);
+        }
+
+        function selectTool(tool) {
+            currentTool = tool;
+            let label = document.getElementById("current-tool");
+            if (tool == 0) {
+                label.innerHTML = 'BLANK'
+            }
+            else if (tool == 1) {
+                label.innerHTML = 'WALL'
+            }
+            else if (tool == 2) {
+                label.innerHTML = 'START'
+            }
+            else if (tool == 3) {
+                label.innerHTML = 'GOAL'
+            }
+            else {
+                label.innerHTML = 'BLANK'
+            }
+        }
+
+        function getMousePos(canvas, evt) {
+            var rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        function updateMap(e) {
+            let canvas = document.getElementById("editor-canvas");
+            let mousePos = getMousePos(canvas, e);
+            cellSize = computeCellSize();
+            let cellX = Math.floor((mousePos.x - START_X) / cellSize);
+            let cellY = Math.floor((mousePos.y - START_Y) / cellSize);
+            if (cellX >= 0 && cellX < size && cellY >= 0 && cellY < size) {
+                if (e.buttons == 1) {
+                    if (currentTool == 2) {
+                        for (let i = 0; i < size; i++)
+                            for (let j = 0; j < size; j++)
+                                if (mazeData[i][j] == 2)
+                                    mazeData[i][j] = 0;
+                    }
+                    if (currentTool == 3) {
+                        for (let i = 0; i < size; i++)
+                            for (let j = 0; j < size; j++)
+                                if (mazeData[i][j] == 3)
+                                    mazeData[i][j] = 0;
+                    }
+                    mazeData[cellY][cellX] = currentTool;
+                    redraw();
+                }
+            }
+        }
+        
+        function clearMaze() {
+            for (let i = 0; i < size; i++)
+                for (let j = 0; j < size; j++)
+                    mazeData[i][j] = 0;
+            redraw();
+        }
+
+        function computeCellSize() {
+            let canvas = document.getElementById("editor-canvas");
+            width = parseInt(canvas.width);
+            return (width - START_X * 2) / size; 
+        }
+
+        function redraw() {
+            let canvas = document.getElementById("editor-canvas");
+            let ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let currentX = START_X;
+            let currentY = START_Y;
+            let cellSize = computeCellSize();
+
+            for (let i = 0; i < size; i++) {
+                currentX = START_X;
+                for (let j = 0; j < size; j++) {
+                    ctx.strokeStyle = "black";
+                    ctx.strokeRect(currentX, currentY, cellSize, cellSize);
+
+                    if (mazeData[i][j] == 1) {
+                        ctx.fillStyle = "black";
+                        ctx.fillRect(currentX, currentY, cellSize, cellSize);
+                    }
+                    if (mazeData[i][j] == 2) {
+                        ctx.fillStyle = "yellow";
+                        ctx.fillRect(currentX, currentY, cellSize, cellSize);
+                    }
+                    if (mazeData[i][j] == 3) {
+                        ctx.fillStyle = "green";
+                        ctx.fillRect(currentX, currentY, cellSize, cellSize);
+                    }
+
+                    currentX += cellSize;
+                }
+                currentY += cellSize;
+            }
+        }        
+        init();
+        redraw();
+        computeCellSize();
+
+        let sizeSelector = document.getElementById("size-selector");
+        sizeSelector.onkeypress=function(evt){
+            evt.preventDefault();
+        };
+
+        sizeSelector.onchange = function(e) {
+            let value = parseInt(this.value);
+            size = value;
+            redraw();
+        }
+    </script>
+</html>
